@@ -1,2 +1,2 @@
 # PyTorchScaledConjugateGradient
-Scaled Conjugate Gradient (SCG) algorithm implemented in PyTorch.
+Scaled Conjugate Gradient (SCG) optimization algorithm implemented in PyTorch.
