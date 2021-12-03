@@ -120,11 +120,11 @@ class SCG(Optimizer):
         # Model parameters
         params = self._clone_param()
 
-        # Load set training parameters
+        # Set training parameters
         group = self.param_groups[0]
         min_grad = group['min_grad']
 
-        # Perform a golden section line search
+        # Perform a step of SCG
         final_loss = self._scaled_conjugate_gradient(closure, params, min_grad)
 
         return final_loss
@@ -132,7 +132,7 @@ class SCG(Optimizer):
     def _scaled_conjugate_gradient(self, closure, params, min_grad=1e-10):
 
         """
-        Implementation of Scaled Conjugate Gradient line search.
+        Implementation of Scaled Conjugate Gradient.
         :param closure: A closure evaluates the model's gradients
                         and returns the loss.
         :param min_grad: minimum gradient norm
