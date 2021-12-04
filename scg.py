@@ -51,12 +51,13 @@ class SCG(Optimizer):
         self.state.setdefault('deltak', torch.tensor(0))
         self.state.setdefault('nrmsqr_dx', torch.tensor(0))
         self.state.setdefault('gx', None)
+        self.state.setdefault('rx', None)
         self.state.setdefault('dx', None)
         self.state.setdefault('norm_dx', None)
         self.state.setdefault('gx_old', None)
         self.state.setdefault('x', None)
         self.state.setdefault('norm_gx', 0)
-        self.state.setdefault('completed',False)
+        self.state.setdefault('completed', False)
         self.state.setdefault('num_x', num_x)
         self.state.setdefault('reset', False)
 
@@ -149,6 +150,7 @@ class SCG(Optimizer):
         deltak = self.state['deltak']
         nrmsqr_dx = self.state['nrmsqr_dx']
         gx = self.state['gx']
+        rx = self.state['rx']
         dx = self.state['dx']
         norm_dx = self.state['norm_dx']
         gx_old = self.state['gx_old']
@@ -175,6 +177,7 @@ class SCG(Optimizer):
 
         # Initialize training parameters for first epoch
         if epoch is 0 or reset:
+
             # Disable reset
             reset = False
 
@@ -190,21 +193,22 @@ class SCG(Optimizer):
 
             # Initialize search direction and norm
             dx = -gx.clone()
+            rx = dx.clone()
             nrmsqr_dx = torch.dot(dx, dx)
             norm_dx = nrmsqr_dx.sqrt()
 
             # Initialize training parameters and flag
-            success = 1
+            success = True
             lambdab = 0
-            lambdak = _lambda
+            lambdak = _lambda.clone()
+            deltak = 0
 
-        # If success is true, calculate second order information
-        if success is 1:
+        # If success is True, calculate second order information
+        if success:
             sigmak = sigma / norm_dx
-            x_temp = x + sigmak * dx
-            self._set_param_vector(x_temp)
-            perf_temp, gx_temp = grad()
-            sk = (gx_temp - gx) / sigmak
+            self._set_param_vector(x + sigmak * dx)
+            _, gx_new = grad()
+            sk = (gx_new - gx) / sigmak
             deltak = torch.dot(dx, sk)
 
         # Scale deltak
@@ -218,7 +222,7 @@ class SCG(Optimizer):
             lambdak = lambdab
 
         # Calculate step size
-        muk = torch.dot(-dx, gx)
+        muk = torch.dot(dx, rx)
         alphak = muk / deltak
 
         # Calculate the comparison parameter
@@ -230,36 +234,37 @@ class SCG(Optimizer):
         # If difk >= 0 then a successful reduction in error can
         # be made
         if difk >= 0:
-            gx_old = gx.clone()
+            rx_old = rx.clone()
             x = x_temp.clone()
             perf = perf_temp
             gx = gx_temp.clone()
-            norm_gx = torch.dot(gx, gx).sqrt()
+            rx = -gx.clone()
+            norm_gx = torch.dot(rx, rx).sqrt()
             lambdab = 0
-            success = 1
+            success = True
 
             # Restart the algorithm every num_X iterations
             if epoch % num_x is 0:
-                dx = -gx.clone()
+                dx = rx.clone()
             else:
-                betak = (torch.dot(gx, gx) - torch.dot(gx, gx_old)) / muk
-                dx = -gx + betak * dx
+                betak = (torch.dot(rx, rx) - torch.dot(rx, rx_old)) / muk
+                dx = rx + betak * dx
 
             nrmsqr_dx = torch.dot(dx, dx)
             norm_dx = nrmsqr_dx.sqrt()
 
             if difk >= 0.75:
-                lambdak *= 0.25
+                lambdak *= 0.5
 
         else:
             self._set_param_vector(x)
             lambdab = lambdak
-            success = 0
+            success = False
 
         if difk < 0.25:
-            lambdak = lambdak + deltak * (1.0 - difk) / nrmsqr_dx
+            lambdak = lambdak + 0.05 * deltak * (1.0 - difk) / nrmsqr_dx
 
-        if lambdak >= 10000:
+        if lambdak >= 10000000:
             reset = True
 
         if norm_gx < min_grad:
@@ -274,6 +279,7 @@ class SCG(Optimizer):
         self.state['deltak'] = deltak
         self.state['nrmsqr_dx'] = nrmsqr_dx
         self.state['gx'] = gx
+        self.state['rx'] = rx
         self.state['dx'] = dx
         self.state['norm_dx'] = norm_dx
         self.state['gx_old'] = gx_old
