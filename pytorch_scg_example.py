@@ -7,7 +7,7 @@ import math
 def main():
 
     x = torch.unsqueeze(torch.linspace(-2, 2, 200), dim=1)
-    y = torch.sin(x * 2 * math.pi) + 0.5*torch.rand(x.size())
+    y = torch.sin(x * 2 * math.pi) + 0.2*torch.rand(x.size())
     x, y = torch.autograd.Variable(x), torch.autograd.Variable(y)
 
     # Define a network for regression
@@ -22,14 +22,14 @@ def main():
             input = self.predict(input)
             return input
 
-    net = Regression(n_feature=1, n_hidden=10, n_output=1)
+    net = Regression(n_feature=1, n_hidden=40, n_output=1)
     optimizer = SCG(net.parameters())
     loss_func = torch.nn.MSELoss()
 
     fig, ax = plt.subplots(figsize=(8, 5))
 
     # train the network
-    for i in range(5000):
+    for i in range(1000):
 
         def closure():
             optimizer.zero_grad()
@@ -40,7 +40,7 @@ def main():
 
         loss = optimizer.step(closure)
 
-        if (i + 1) % 50 == 0 or i + 1 == 1:
+        if (i + 1) % 25 == 0 or i + 1 == 1:
             print("Iteration: " + str(i + 1) + ", Loss: " + f'{loss:.9f}')
 
             plt.cla()
